@@ -2,7 +2,7 @@
 
 import { Canvas } from "@react-three/fiber"
 import { OrbitControls, Environment, Float } from "@react-three/drei"
-import { Suspense, useState } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -11,11 +11,9 @@ import { useAuth } from "@/contexts/AuthContext"
 import { AuthModal } from "@/components/auth/AuthModal"
 import Link from "next/link"
 
-// 3D Desk Scene Component
 function DeskScene({ onObjectClick }: { onObjectClick: (object: string) => void }) {
   const [hoveredObject, setHoveredObject] = useState<string | null>(null)
 
-  // Monitor Object
   function MonitorObject() {
     return (
       <Float speed={1} rotationIntensity={0.1} floatIntensity={0.1}>
@@ -33,7 +31,6 @@ function DeskScene({ onObjectClick }: { onObjectClick: (object: string) => void 
             emissiveIntensity={hoveredObject === "monitor" ? 0.2 : 0}
           />
         </mesh>
-        {/* Monitor Stand */}
         <mesh position={[0, -0.2, 0]}>
           <cylinderGeometry args={[0.1, 0.1, 0.4]} />
           <meshStandardMaterial color="#333333" />
@@ -42,7 +39,6 @@ function DeskScene({ onObjectClick }: { onObjectClick: (object: string) => void 
     )
   }
 
-  // Books Object
   function BooksObject() {
     return (
       <Float speed={1.2} rotationIntensity={0.1} floatIntensity={0.1}>
@@ -53,7 +49,6 @@ function DeskScene({ onObjectClick }: { onObjectClick: (object: string) => void 
           onClick={() => onObjectClick("courses")}
           rotation={hoveredObject === "books" ? [0, 0.1, 0] : [0, 0, 0]}
         >
-          {/* Stack of books */}
           {[0, 0.15, 0.3].map((y, i) => (
             <mesh key={i} position={[0, y, 0]}>
               <boxGeometry args={[0.8, 0.1, 1.2]} />
@@ -69,7 +64,6 @@ function DeskScene({ onObjectClick }: { onObjectClick: (object: string) => void 
     )
   }
 
-  // Page Object
   function PageObject() {
     return (
       <Float speed={0.8} rotationIntensity={0.1} floatIntensity={0.1}>
@@ -91,7 +85,6 @@ function DeskScene({ onObjectClick }: { onObjectClick: (object: string) => void 
     )
   }
 
-  // Desk Surface
   function Desk() {
     return (
       <mesh position={[0, -0.5, 0]} receiveShadow>
@@ -107,8 +100,6 @@ function DeskScene({ onObjectClick }: { onObjectClick: (object: string) => void 
       <MonitorObject />
       <BooksObject />
       <PageObject />
-
-      {/* Lighting */}
       <ambientLight intensity={0.3} />
       <pointLight position={[0, 5, 0]} intensity={1} color="#39ff14" />
       <spotLight position={[0, 10, 5]} angle={0.3} penumbra={1} intensity={1} castShadow color="#39ff14" />
@@ -116,41 +107,41 @@ function DeskScene({ onObjectClick }: { onObjectClick: (object: string) => void 
   )
 }
 
-function ParticleBackground() {
+function Scene3DOverlayLoader() {
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      {Array.from({ length: 30 }).map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-1 h-1 bg-primary rounded-full opacity-20"
-          style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-          }}
-          animate={{
-            y: [0, -30, 0],
-            opacity: [0.2, 0.6, 0.2],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 4 + Math.random() * 2,
-            repeat: Number.POSITIVE_INFINITY,
-            delay: Math.random() * 3,
-            ease: "easeInOut",
-          }}
-        />
-      ))}
-    </div>
-  )
-}
-
-function Scene3DFallback() {
-  return (
-    <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-background to-card rounded-xl">
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-gradient-to-b from-background to-card rounded-xl">
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">Loading 3D scene...</p>
       </div>
+    </div>
+  )
+}
+
+function ParticleBackground() {
+  const [positions, setPositions] = useState<{ left: string; top: string }[]>([])
+
+  useEffect(() => {
+    const generated = Array.from({ length: 30 }).map(() => ({
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+    }))
+    setPositions(generated)
+  }, [])
+
+  if (!positions.length) return null
+
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      {positions.map((pos, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1 h-1 bg-primary rounded-full opacity-20"
+          style={{ left: pos.left, top: pos.top }}
+          animate={{ y: [0, 10, 0] }}
+          transition={{ repeat: Infinity, duration: 2, delay: i * 0.1 }}
+        />
+      ))}
     </div>
   )
 }
@@ -161,31 +152,17 @@ export default function HomePage() {
   const { user, logout } = useAuth()
 
   const handleObjectClick = (flow: string) => {
-    if (!user) {
-      setShowAuthModal(true)
-      return
-    }
-
+    if (!user) return setShowAuthModal(true)
     setSelectedFlow(flow)
-    if (flow === "career") {
-      window.location.href = "/career"
-    } else if (flow === "courses") {
-      window.location.href = "/courses"
-    } else if (flow === "roadmap") {
-      window.location.href = "/roadmap"
-    }
+    window.location.href = `/${flow}`
   }
 
   const handleAuthAction = () => {
-    if (user) {
-      logout()
-    } else {
-      setShowAuthModal(true)
-    }
+    user ? logout() : setShowAuthModal(true)
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-mono">
+    <div className="min-h-screen bg-background text-foreground font-mono relative">
       <ParticleBackground />
 
       <motion.header
@@ -197,28 +174,19 @@ export default function HomePage() {
         <nav className="flex justify-between items-center max-w-7xl mx-auto">
           <h1 className="text-xl sm:text-2xl font-bold text-primary glow-green text-glow">FUTURE.LEARN</h1>
           <div className="flex gap-2 sm:gap-6 items-center">
-            <Button variant="ghost" className="text-foreground hover:text-primary hidden sm:inline-flex">
-              About
-            </Button>
-            <Button variant="ghost" className="text-foreground hover:text-primary hidden sm:inline-flex">
-              Contact
-            </Button>
+            <Button variant="ghost" className="text-foreground hover:text-primary hidden sm:inline-flex">About</Button>
+            <Button variant="ghost" className="text-foreground hover:text-primary hidden sm:inline-flex">Contact</Button>
             {user ? (
               <div className="flex items-center gap-2 sm:gap-4">
                 <span className="text-xs sm:text-sm text-muted-foreground hidden md:inline">
                   Welcome, {user.displayName || user.email}
                 </span>
-                <Button
-                  variant="outline"
-                  onClick={handleAuthAction}
-                  className="border-primary/20 bg-transparent text-xs sm:text-sm focus-glow"
-                  size="sm"
-                >
+                <Button variant="outline" onClick={handleAuthAction} size="sm" className="border-primary/20 bg-transparent text-xs sm:text-sm focus-glow">
                   Sign Out
                 </Button>
               </div>
             ) : (
-              <Button className="glow-green focus-glow text-xs sm:text-sm" onClick={handleAuthAction} size="sm">
+              <Button size="sm" onClick={handleAuthAction} className="glow-green focus-glow text-xs sm:text-sm">
                 Get Started
               </Button>
             )}
@@ -237,83 +205,49 @@ export default function HomePage() {
             SHAPE YOUR FUTURE
           </h2>
           <p className="text-responsive-base text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Discover your career path, enhance your skills, and build a personalized roadmap to success in the digital
-            age.
+            Discover your career path, enhance your skills, and build a personalized roadmap to success in the digital age.
           </p>
         </motion.div>
 
         <motion.div
-          className="w-full max-w-4xl h-64 sm:h-80 lg:h-96 mb-8 sm:mb-12 rounded-xl overflow-hidden glow-green"
+          className="relative w-full max-w-4xl h-64 sm:h-80 lg:h-96 mb-8 sm:mb-12 rounded-xl overflow-hidden glow-green"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, delay: 0.4 }}
         >
-          <Canvas
-            camera={{ position: [0, 5, 8], fov: 50 }}
-            shadows
-            className="bg-gradient-to-b from-background to-card"
-          >
-            <Suspense fallback={<Scene3DFallback />}>
+          <Canvas camera={{ position: [0, 5, 8], fov: 50 }} shadows className="bg-gradient-to-b from-background to-card">
+            <Suspense fallback={null}>
               <DeskScene onObjectClick={handleObjectClick} />
-              <OrbitControls
-                enablePan={false}
-                enableZoom={false}
-                maxPolarAngle={Math.PI / 2}
-                minPolarAngle={Math.PI / 4}
-              />
+              <OrbitControls enablePan={false} enableZoom={false} maxPolarAngle={Math.PI / 2} minPolarAngle={Math.PI / 4} />
               <Environment preset="night" />
             </Suspense>
           </Canvas>
+          <Scene3DOverlayLoader />
         </motion.div>
 
-        <motion.div
-          className="grid-responsive max-w-4xl w-full"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
-        >
-          <Link href={user ? "/career" : "#"} onClick={!user ? () => setShowAuthModal(true) : undefined}>
-            <Card className="p-4 sm:p-6 bg-card border-primary/20 hover:border-primary/50 transition-all duration-300 hover:glow-green cursor-pointer h-full focus-glow">
-              <Monitor className="w-10 h-10 sm:w-12 sm:h-12 text-primary mb-3 sm:mb-4" />
-              <h3 className="text-lg sm:text-xl font-bold mb-2">Career & Skills</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Assess your skills and discover career opportunities tailored to your strengths.
-              </p>
-            </Card>
-          </Link>
-
-          <Link href={user ? "/courses" : "#"} onClick={!user ? () => setShowAuthModal(true) : undefined}>
-            <Card className="p-4 sm:p-6 bg-card border-primary/20 hover:border-primary/50 transition-all duration-300 hover:glow-green cursor-pointer h-full focus-glow">
-              <BookOpen className="w-10 h-10 sm:w-12 sm:h-12 text-primary mb-3 sm:mb-4" />
-              <h3 className="text-lg sm:text-xl font-bold mb-2">Courses</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Access curated courses designed to accelerate your professional growth.
-              </p>
-            </Card>
-          </Link>
-
-          <Link href={user ? "/roadmap" : "#"} onClick={!user ? () => setShowAuthModal(true) : undefined}>
-            <Card className="p-4 sm:p-6 bg-card border-primary/20 hover:border-primary/50 transition-all duration-300 hover:glow-green cursor-pointer h-full focus-glow">
-              <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-primary mb-3 sm:mb-4" />
-              <h3 className="text-lg sm:text-xl font-bold mb-2">Personalized Roadmap</h3>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Get a customized learning path based on your goals and current skill level.
-              </p>
-            </Card>
-          </Link>
+        <motion.div className="grid-responsive max-w-4xl w-full" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.6 }}>
+          {["career", "courses", "roadmap"].map((route, i) => {
+            const icons = [<Monitor key="1" />, <BookOpen key="2" />, <FileText key="3" />]
+            const titles = ["Career & Skills", "Courses", "Personalized Roadmap"]
+            const descriptions = [
+              "Assess your skills and discover career opportunities tailored to your strengths.",
+              "Access curated courses designed to accelerate your professional growth.",
+              "Get a customized learning path based on your goals and current skill level."
+            ]
+            return (
+              <Link key={route} href={user ? `/${route}` : "#"} onClick={!user ? () => setShowAuthModal(true) : undefined}>
+                <Card className="p-4 sm:p-6 bg-card border-primary/20 hover:border-primary/50 transition-all duration-300 hover:glow-green cursor-pointer h-full focus-glow">
+                  {icons[i]}
+                  <h3 className="text-lg sm:text-xl font-bold mb-2">{titles[i]}</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground">{descriptions[i]}</p>
+                </Card>
+              </Link>
+            )
+          })}
         </motion.div>
 
-        <motion.div
-          className="mt-12 sm:mt-16 text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.8 }}
-        >
-          <Button
-            size="lg"
-            className="text-sm sm:text-lg px-6 sm:px-8 py-3 sm:py-4 glow-green-intense focus-glow"
-            onClick={handleAuthAction}
-          >
+        <motion.div className="mt-12 sm:mt-16 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.8 }}>
+          <Button size="lg" onClick={handleAuthAction} className="text-sm sm:text-lg px-6 sm:px-8 py-3 sm:py-4 glow-green-intense focus-glow">
             Begin Your Journey
           </Button>
         </motion.div>
